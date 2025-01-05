@@ -36,11 +36,28 @@
 #define UNIT_SIZE 4 // 一个内存单元的字节大小
 #define ACT_PRE_REC_SIZE 3 // 活动记录的预先大小（RA、DL、全局Display）
 
+#define OPR_RETURN 0
+#define OPR_NEGTIVE 1
+#define OPR_ADD 2
+#define OPR_SUB 3
+#define OPR_MUL 4
+#define OPR_DIV 5
+#define OPR_ODD 6
+#define OPR_EQL 7
+#define OPR_NEQ 8
+#define OPR_LSS 9
+#define OPR_GEQ 10
+#define OPR_GRT 11
+#define OPR_LEQ 12
+#define OPR_PRINT 13
+#define OPR_PRINTLN 14
+
 // 解释器相关常量
 #define RA 0
 #define DL 1
 #define GLO_DIS 2
 #define DISPLAY 3
+#define MAX_STACK_SIZE 200 // 栈的最大大小
 
 enum class token_type
 {
@@ -58,7 +75,10 @@ enum class identifier_type
     PROCEDURE = 1, // 过程
     CONSTANT = 2, // 常量
     VARIABLE = 3, // 变量
-    PARAMETER = 4 // 参数
+    PARAMETER = 4, // 参数
+    NUMBER = 5, // 数字
+    ARRAY = 6, // 数组
+    NUL = 0, // 初始化
 };
 
 enum class opr_type
@@ -100,6 +120,22 @@ enum class rsv_word_type
     PROGRAM = 15, // program
 };
 
+// 中间代码指令集
+enum Operation
+{
+    lit, // 取常量a放入数据栈栈顶
+    opr, // 执行运算，a表示执行某种运算
+    load, // 取变量（相对地址为a，层差为L）放到数据栈的栈顶
+    store, // 将数据栈栈顶的内容存入变量（相对地址为a，层次差为L）
+    call, // 调用过程（转子指令）（入口地址为a，层次差为L）
+    alloc, // 数据栈栈顶指针增加a
+    jmp, // 条件转移到地址为a的指令
+    jpc, // 条件转移指令，转移到地址为a的指令
+    red, // 读数据并存入变量（相对地址为a，层次差为L）
+    wrt, // 将栈顶内容输出
+    nil // 无操作
+};
+
 inline std::string token_type_to_string(const token_type type)
 {
     switch (type)
@@ -135,6 +171,12 @@ inline std::string identifier_type_to_string(const identifier_type type)
         return "Constant";
     case identifier_type::PARAMETER:
         return "Parameter";
+    case identifier_type::NUMBER:
+        return "Number";
+    case identifier_type::ARRAY:
+        return "Array";
+    case identifier_type::NUL:
+        return "Null";
     default:
         return "";
     }

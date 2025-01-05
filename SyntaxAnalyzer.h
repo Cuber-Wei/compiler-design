@@ -13,13 +13,10 @@ class SyntaxAnalyzer
 {
 public:
     LexAnalyzer lexer;
-    SymTable sym_table;
-    PCode pcoder;
     bool is_valid_token = false; // 默认token不合法
     int exit_status = SYN_SUCCESS; // 默认退出状态为0(成功)
 
-    explicit SyntaxAnalyzer(LexAnalyzer lexAnalyzer, SymTable sym_table, PCode pcoder) : lexer(std::move(lexAnalyzer)),
-        sym_table(std::move(sym_table)), pcoder(std::move(pcoder))
+    explicit SyntaxAnalyzer(LexAnalyzer lexAnalyzer) : lexer(std::move(lexAnalyzer))
     {
     }
 

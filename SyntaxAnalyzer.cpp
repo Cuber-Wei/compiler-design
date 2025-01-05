@@ -4,6 +4,8 @@
 
 #include "SyntaxAnalyzer.h"
 
+#include <ranges>
+
 #include "Utils.h"
 #include "variables.h"
 
@@ -64,13 +66,21 @@ void SyntaxAnalyzer::prog()
         if (lexer.sym[0] == token_type_to_string(token_type::IDENTIFY))
         {
             // 为标识符, <id>
+            // 登入符号表
+            SymTable::mkTable();
+            SymTable::enterProgram(lexer.sym[2]);
             is_valid_token = lexer.getToken();
             if (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && lexer.sym[1] ==
                 opr_type_to_string(opr_type::SEMICOLON))
             {
                 // 为分号, ;
+                // 主程序入口地址登入符号表
+                const size_t entry = PCode::emit(jmp, 0, 0);
+                SymTable::table[0].info->setEntry(entry);
                 // 检查block定义
                 block();
+                // 返回，弹栈
+                PCode::emit(opr, 0, OPR_RETURN);
             }
             else
             {
@@ -107,9 +117,19 @@ void SyntaxAnalyzer::exp()
     // <aop> -> + | -
     if (lexer.sym[1] != opr_type_to_string(opr_type::ADD) && lexer.sym[1] != opr_type_to_string(opr_type::SUB))
         return;
-
-    is_valid_token = lexer.getToken();
-    term();
+    std::string aop = lexer.sym[1];
+    if (aop == opr_type_to_string(opr_type::SUB))
+        PCode::emit(opr, 0, OPR_NEGTIVE);
+    while (lexer.sym[1] == opr_type_to_string(opr_type::ADD) || lexer.sym[1] == opr_type_to_string(opr_type::SUB))
+    {
+        aop = lexer.sym[1];
+        is_valid_token = lexer.getToken();
+        term();
+        if (aop == opr_type_to_string(opr_type::ADD))
+            PCode::emit(opr, 0, OPR_ADD);
+        else
+            PCode::emit(opr, 0, OPR_SUB);
+    }
 }
 
 void SyntaxAnalyzer::factor()
@@ -117,9 +137,35 @@ void SyntaxAnalyzer::factor()
     // <factor>-><id> | <integer> | (<exp>)
     if (lexer.sym[0] == token_type_to_string(token_type::IDENTIFY))
     {
+        // 查找变量
+        const int pos = SymTable::lookUpVar(lexer.sym[2]);
+        VarInfo* curr_info = nullptr;
+        if (pos != -1)
+        {
+            Utils::error("Undefined variable '" + lexer.sym[2] + "'.", lexer.curr_row, lexer.curr_col);
+            syntax_err_cnt++;
+        }
+        else
+            curr_info = dynamic_cast<VarInfo*>(SymTable::table[pos].info);
+        if (curr_info)
+        {
+            if (curr_info->cat == identifier_type_to_string(identifier_type::CONSTANT))
+            {
+                const int val = curr_info->getValue();
+                PCode::emit(lit, static_cast<int>(curr_info->level), val);
+            }
+            else
+            {
+                // 为变量，取左值
+                PCode::emit(load, static_cast<int>(curr_info->level),
+                            static_cast<int>(curr_info->offset / UNIT_SIZE + ACT_PRE_REC_SIZE + curr_info->level + 1));
+            }
+        }
     }
     else if (lexer.sym[0] == token_type_to_string(token_type::NUMBER))
     {
+        // 数值，直接入栈
+        PCode::emit(lit, 0, std::stoi(lexer.sym[2]));
     }
     else if (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && lexer.sym[1] == opr_type_to_string(
         opr_type::LEFT_BRACKET))
@@ -153,9 +199,14 @@ void SyntaxAnalyzer::term()
     if (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && (lexer.sym[1] == opr_type_to_string(opr_type::MUL)
         || lexer.sym[1] == opr_type_to_string(opr_type::DIV)))
     {
+        std::string mop = lexer.sym[1];
         // <mop> -> * | /
         is_valid_token = lexer.getToken();
         factor();
+        if (mop == opr_type_to_string(opr_type::MUL))
+            PCode::emit(opr, 0, OPR_MUL);
+        else
+            PCode::emit(opr, 0, OPR_DIV);
         is_valid_token = lexer.getToken();
     }
 }
@@ -169,19 +220,32 @@ void SyntaxAnalyzer::lexp()
     {
         is_valid_token = lexer.getToken();
         exp();
+        PCode::emit(opr, 0, OPR_ODD);
     }
     else
     {
         exp();
-
         if (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && (lexer.sym[1] ==
             opr_type_to_string(opr_type::EQ) || lexer.sym[1] == opr_type_to_string(opr_type::NEQ) || lexer.sym[1] ==
             opr_type_to_string(opr_type::LT) || lexer.sym[1] == opr_type_to_string(opr_type::LEQ) || lexer.sym[1] ==
             opr_type_to_string(opr_type::GT) || lexer.sym[1] == opr_type_to_string(opr_type::GEQ)))
         {
+            const std::string lop = lexer.sym[1];
             // <lop> -> = | <> | < | <= | > | >=
             is_valid_token = lexer.getToken();
             exp();
+            if (lop == opr_type_to_string(opr_type::EQ))
+                PCode::emit(opr, 0, OPR_EQL);
+            else if (lop == opr_type_to_string(opr_type::NEQ))
+                PCode::emit(opr, 0, OPR_NEQ);
+            else if (lop == opr_type_to_string(opr_type::LT))
+                PCode::emit(opr, 0, OPR_LSS);
+            else if (lop == opr_type_to_string(opr_type::LEQ))
+                PCode::emit(opr, 0, OPR_LEQ);
+            else if (lop == opr_type_to_string(opr_type::GT))
+                PCode::emit(opr, 0, OPR_GRT);
+            else if (lop == opr_type_to_string(opr_type::GEQ))
+                PCode::emit(opr, 0, OPR_GEQ);
             return;
         }
         is_valid_token = lexer.getToken();
@@ -204,11 +268,26 @@ void SyntaxAnalyzer::statement()
     {
         // <id>
         // <id> :=
+        const int pos = SymTable::lookUpVar(lexer.sym[2]);
+        VarInfo* curr_info = nullptr;
+        if (pos != -1)
+        {
+            Utils::error("Undefined variable '" + lexer.sym[2] + "'.", lexer.curr_row, lexer.curr_col);
+            sym_err_cnt++;
+        }
+        else
+            curr_info = dynamic_cast<VarInfo*>(SymTable::table[pos].info);
         is_valid_token = lexer.getToken();
         if (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && lexer.sym[1] == opr_type_to_string(
             opr_type::ASSIGN))
         {
             // <id> := <exp>
+            //查找到右值，右值不可被赋值
+            if (curr_info && curr_info->cat == identifier_type_to_string(identifier_type::CONSTANT))
+            {
+                Utils::error("Constant can not be assigned.", lexer.curr_row, lexer.curr_col);
+                sym_err_cnt++;
+            }
             is_valid_token = lexer.getToken();
             exp();
         }
@@ -218,23 +297,36 @@ void SyntaxAnalyzer::statement()
             syntax_err_cnt++;
             exit_status = SYN_MISS_TOKEN;
         }
+        if (curr_info)
+            PCode::emit(store, static_cast<int>(curr_info->level),
+                        static_cast<int>(curr_info->offset / UNIT_SIZE + ACT_PRE_REC_SIZE + curr_info->level + 1));
     }
     else
     {
         if (lexer.sym[1] == rsv_word_type_to_string(rsv_word_type::IF))
         {
             lexp();
+            size_t entry_jpc = -1, entry_jmp = -2;
             if (lexer.sym[0] == token_type_to_string(token_type::RSV_WORD) && lexer.sym[1] == rsv_word_type_to_string(
                 rsv_word_type::THEN))
             {
+                entry_jpc = PCode::emit(jpc, 0, 0);
                 // if <lexp> then <statement>
                 statement();
                 // if <lexp> then <statement> [else <statement>]
                 if (lexer.sym[0] == token_type_to_string(token_type::RSV_WORD) && lexer.sym[1] ==
                     rsv_word_type_to_string(rsv_word_type::ELSE))
                 {
+                    entry_jmp = PCode::emit(jmp, 0, 0);
+                    // 将else入口地址回填至jpc
+                    PCode::backpatch(entry_jpc, PCode::codeList.size());
                     statement();
+                    // 有else，则将if外入口地址回填至jmp
+                    PCode::backpatch(entry_jmp, PCode::codeList.size());
                 }
+                else
+                // 没有else，则将if外入口地址回填至jpc
+                    PCode::backpatch(entry_jpc, PCode::codeList.size());
             }
             else
             {
@@ -246,12 +338,18 @@ void SyntaxAnalyzer::statement()
         else if (lexer.sym[1] == rsv_word_type_to_string(rsv_word_type::WHILE))
         {
             // while <lexp> do <statement>
+            const size_t condition = PCode::codeList.size();
             lexp();
+            // 当前栈顶为条件表达式的布尔值
+            // 条件为假跳转，待回填循环出口地址
+            const size_t loop = PCode::emit(jpc, 0, 0);
             // is_valid_token = lexer.getToken();
             if (lexer.sym[0] == token_type_to_string(token_type::RSV_WORD) && lexer.sym[1] == rsv_word_type_to_string(
                 rsv_word_type::DO))
             {
                 statement();
+                // 无条件跳转至循环条件判断前
+                PCode::emit(jmp, 0, static_cast<int>(condition));
             }
             else
             {
@@ -259,6 +357,8 @@ void SyntaxAnalyzer::statement()
                 syntax_err_cnt++;
                 exit_status = SYN_MISS_TOKEN;
             }
+            // 将下一条语句回填至jpc
+            PCode::backpatch(loop, PCode::codeList.size());
         }
         else if (lexer.sym[1] == rsv_word_type_to_string(rsv_word_type::CALL))
         {
@@ -266,6 +366,23 @@ void SyntaxAnalyzer::statement()
             is_valid_token = lexer.getToken();
             if (lexer.sym[0] == token_type_to_string(token_type::IDENTIFY))
             {
+                ProcInfo* curr_info = nullptr;
+                // 查找过程的符号名
+                int pos = SymTable::lookUpProc(lexer.sym[2]);
+                // 未查找到过程名
+                if (pos == -1)
+                {
+                    Utils::error("Undefined variable '" + lexer.sym[2] + "'.", lexer.curr_row, lexer.curr_col);
+                    sym_err_cnt++;
+                }
+                else
+                    curr_info = dynamic_cast<ProcInfo*>(SymTable::table[pos].info);
+                // 若调用未定义的过程
+                if (curr_info && !curr_info->isDefined)
+                {
+                    Utils::error("Undefined variable '" + lexer.sym[2] + "'.", lexer.curr_row, lexer.curr_col);
+                    sym_err_cnt++;
+                }
                 is_valid_token = lexer.getToken();
                 if (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && lexer.sym[1] == opr_type_to_string(
                     opr_type::LEFT_BRACKET))
@@ -273,18 +390,34 @@ void SyntaxAnalyzer::statement()
                     // (<exp> {, <exp>})
                     is_valid_token = lexer.getToken();
                     exp();
+                    // 将实参传入即将调用的子过程
+                    if (curr_info)
+                        PCode::emit(store, -1, ACT_PRE_REC_SIZE + curr_info->level + 1);
+                    size_t i = 1;
                     while (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && lexer.sym[1] ==
                         opr_type_to_string(
                             opr_type::COMMA))
                     {
                         is_valid_token = lexer.getToken();
                         exp();
+                        if (curr_info)
+                            PCode::emit(store, -1, ACT_PRE_REC_SIZE + curr_info->level + 1 + i++);
                         // is_valid_token = lexer.getToken();
                     }
+                    // 实参与形参数量不匹配，报错
+                    if (curr_info && i != curr_info->form_var_list.size())
+                    {
+                        Utils::error("Parameter number mismatch.", lexer.curr_row, lexer.curr_col);
+                        sym_err_cnt++;
+                    }
+
                     if (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && lexer.sym[1] == opr_type_to_string(
                         opr_type::RIGHT_BRACKET))
                     {
                         is_valid_token = lexer.getToken();
+                        //调用子过程
+                        if (curr_info)
+                            PCode::emit(call, static_cast<int>(curr_info->level), static_cast<int>(curr_info->entry));
                     }
                     else
                     {
@@ -317,6 +450,30 @@ void SyntaxAnalyzer::statement()
                 is_valid_token = lexer.getToken();
                 if (lexer.sym[0] == token_type_to_string(token_type::IDENTIFY))
                 {
+                    const int pos = SymTable::lookUpVar(lexer.sym[2]);
+                    const VarInfo* curr_info = nullptr;
+                    if (pos != -1)
+                    {
+                        Utils::error("Undefined variable '" + lexer.sym[2] + "'.", lexer.curr_row, lexer.curr_col);
+                        sym_err_cnt++;
+                    }
+                    else
+                        curr_info = dynamic_cast<VarInfo*>(SymTable::table[pos].info);
+                    // 右值不可被赋值
+                    if (curr_info)
+                    {
+                        if (curr_info->cat == identifier_type_to_string(identifier_type::CONSTANT))
+                        {
+                            Utils::error("Constant cannot be assigned.", lexer.curr_row, lexer.curr_col);
+                            sym_err_cnt++;
+                        }
+                        // 读入一个数据到栈顶
+                        PCode::emit(red, 0, 0);
+                        // 将栈顶送入变量所在地址
+                        PCode::emit(store, static_cast<int>(curr_info->level),
+                                    static_cast<int>(curr_info->offset / UNIT_SIZE + ACT_PRE_REC_SIZE + curr_info->level
+                                        + 1));
+                    }
                 }
                 else
                 {
@@ -332,6 +489,28 @@ void SyntaxAnalyzer::statement()
                     is_valid_token = lexer.getToken();
                     if (lexer.sym[0] == token_type_to_string(token_type::IDENTIFY))
                     {
+                        const int pos = SymTable::lookUpVar(lexer.sym[2]);
+                        const VarInfo* curr_info = nullptr;
+                        if (pos != -1)
+                        {
+                            Utils::error("Undeclared variable '" + lexer.sym[2] + "'.", lexer.curr_row, lexer.curr_col);
+                            sym_err_cnt++;
+                        }
+                        else
+                            curr_info = dynamic_cast<VarInfo*>(SymTable::table[pos].info);
+                        // 右值不可被赋值
+                        if (curr_info)
+                        {
+                            if (curr_info->cat == identifier_type_to_string(identifier_type::CONSTANT))
+                            {
+                                Utils::error("Constant cannot be assigned.", lexer.curr_row, lexer.curr_col);
+                                sym_err_cnt++;
+                            }
+                            PCode::emit(red, 0, 0);
+                            PCode::emit(store, static_cast<int>(curr_info->level),
+                                        static_cast<int>(curr_info->offset / UNIT_SIZE + ACT_PRE_REC_SIZE + curr_info->
+                                            level + 1));
+                        }
                     }
                     else
                     {
@@ -369,12 +548,14 @@ void SyntaxAnalyzer::statement()
             {
                 is_valid_token = lexer.getToken();
                 exp();
+                PCode::emit(wrt, 0, 0);
                 while (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && lexer.sym[1] ==
                     opr_type_to_string(
                         opr_type::COMMA))
                 {
                     is_valid_token = lexer.getToken();
                     exp();
+                    PCode::emit(wrt, 0, 0);
                     is_valid_token = lexer.getToken();
                 }
                 if (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && lexer.sym[1] == opr_type_to_string(
@@ -429,6 +610,11 @@ void SyntaxAnalyzer::block()
             exit_status = SYN_UNEXPECT_EXPR;
         }
     }
+    // 将所需内存写入符号表
+    const size_t curr_proc = SymTable::sp;
+    auto* curr_info = dynamic_cast<ProcInfo*>(SymTable::table[curr_proc].info);
+    SymTable::addWidth(curr_proc, glo_offset);
+
     // [<proc>]
     if (lexer.sym[0] == token_type_to_string(token_type::RSV_WORD) && lexer.sym[1] ==
         rsv_word_type_to_string(rsv_word_type::PROCEDURE))
@@ -448,7 +634,14 @@ void SyntaxAnalyzer::block()
             exit_status = SYN_UNEXPECT_EXPR;
         }
     }
-    // 必须得有 <body>
+    // 开辟子过程空间, 为display开辟level+1单元
+    const size_t entry = PCode::emit(
+        alloc, 0, static_cast<int>(curr_info->offset / UNIT_SIZE + ACT_PRE_REC_SIZE + level + 1));
+    const size_t target = curr_info->entry;
+    // 过程入口语句地址回填到过程跳转语句
+    PCode::backpatch(target, entry);
+    if (curr_proc)
+        curr_info->isDefined = true;
     // <body>
     body();
 }
@@ -461,6 +654,7 @@ void SyntaxAnalyzer::constDef()
     {
         // 标识符定位：常量名
         lexer.sym[1] = identifier_type_to_string(identifier_type::CONSTANT);
+        SymTable::enter(lexer.sym[2], 0, identifier_type_to_string(identifier_type::CONSTANT));
         is_valid_token = lexer.getToken();
         // :=
         if (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && lexer.sym[1] ==
@@ -471,6 +665,7 @@ void SyntaxAnalyzer::constDef()
             if (lexer.sym[0] == token_type_to_string(token_type::NUMBER))
             {
                 // 将数字加入到符号表
+                SymTable::table[SymTable::table.size() - 1].info->setValue(lexer.sym[2]);
             }
             else
             {
@@ -527,6 +722,8 @@ void SyntaxAnalyzer::vardecl()
         // <id>
         // 标识符定位：变量名
         lexer.sym[1] = identifier_type_to_string(identifier_type::VARIABLE);
+        SymTable::enter(lexer.sym[2], glo_offset, identifier_type_to_string(identifier_type::VARIABLE));
+        glo_offset += VAR_WIDTH;
         is_valid_token = lexer.getToken();
         while (lexer.sym[1] !=
             opr_type_to_string(opr_type::SEMICOLON)) // 到分号截止
@@ -540,6 +737,8 @@ void SyntaxAnalyzer::vardecl()
                 {
                     // 标识符定位：变量名
                     lexer.sym[1] = identifier_type_to_string(identifier_type::VARIABLE);
+                    SymTable::enter(lexer.sym[2], glo_offset, identifier_type_to_string(identifier_type::VARIABLE));
+                    glo_offset += VAR_WIDTH;
                     is_valid_token = lexer.getToken(); // 获取下一个Token
                 }
                 else if (lexer.sym[0] == token_type_to_string(token_type::RSV_WORD))
@@ -588,20 +787,39 @@ void SyntaxAnalyzer::proc()
     is_valid_token = lexer.getToken();
     if (lexer.sym[0] == token_type_to_string(token_type::IDENTIFY))
     {
+        ProcInfo* curr_info = nullptr;
         // <proc> -> procedure <id>
         // 标识符定位：过程名
         lexer.sym[1] = identifier_type_to_string(identifier_type::PROCEDURE);
+        SymTable::mkTable();
+        int curr_proc = SymTable::enterProc(lexer.sym[2]);
+        if (curr_proc != -1)
+        {
+            curr_info = dynamic_cast<ProcInfo*>(SymTable::table[curr_proc].info);
+            // 子过程入口地址填入符号表，待回填
+            const size_t entry = PCode::emit(jmp, 0, 0);
+            SymTable::table[SymTable::table.size() - 1].info->setEntry(entry);
+        }
         is_valid_token = lexer.getToken();
         // <proc> -> procedure <id> ([<id> {, <id>}])
         if (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && lexer.sym[1] ==
             opr_type_to_string(opr_type::LEFT_BRACKET))
         {
+            // 层级扩张
+            SymTable::display.push_back(0);
+            level++;
             is_valid_token = lexer.getToken();
             if (lexer.sym[0] == token_type_to_string(token_type::IDENTIFY))
             {
                 // <id>
                 // 标识符定位：参数名
                 lexer.sym[1] = identifier_type_to_string(identifier_type::PARAMETER);
+                // 将形参登入符号表，并与相应过程绑定
+                int form_var = SymTable::enter(lexer.sym[2], glo_offset,
+                                               identifier_type_to_string(identifier_type::PARAMETER));
+                glo_offset += VAR_WIDTH;
+                if (curr_info)
+                    curr_info->form_var_list.push_back(form_var);
                 is_valid_token = lexer.getToken();
                 while (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && lexer.sym[1] !=
                     opr_type_to_string(opr_type::RIGHT_BRACKET))
@@ -615,6 +833,11 @@ void SyntaxAnalyzer::proc()
                         {
                             // 标识符定位：变量名
                             lexer.sym[1] = identifier_type_to_string(identifier_type::VARIABLE);
+                            form_var = SymTable::enter(lexer.sym[2], glo_offset,
+                                                       identifier_type_to_string(identifier_type::PARAMETER));
+                            glo_offset += VAR_WIDTH;
+                            if (curr_info)
+                                curr_info->form_var_list.push_back(form_var);
                             is_valid_token = lexer.getToken(); // 获取下一个Token
                         }
                         else if (lexer.sym[0] == token_type_to_string(token_type::RSV_WORD))
@@ -653,6 +876,11 @@ void SyntaxAnalyzer::proc()
         {
             // <proc> -> procedure <id> ([<id> {, <id>}]); <block>
             block();
+            // 返回，弹栈
+            PCode::emit(opr, 0, OPR_RETURN);
+            // 层级减少，dislapy弹出
+            level--;
+            SymTable::display.pop_back();
             // <proc> -> procedure <id> ([<id> {, <id>}]); <block> {; <proc>}
             while (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && lexer.sym[1] ==
                 opr_type_to_string(opr_type::SEMICOLON))

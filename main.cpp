@@ -18,21 +18,15 @@ int main()
     Utils::readFile(code_file);
     // 建立词法分析器
     const LexAnalyzer lexer(code_str);
-    // 建立符号表
-    SymTable sym_table;
-    // 建立中间代码成成器
-    PCode pcoder(output_path);
     // 建立语法分析器
-    SyntaxAnalyzer syntaxer(lexer, sym_table, pcoder);
+    SyntaxAnalyzer syntaxer(lexer);
     syntaxer.analyze();
-    // 展示符号表
-    sym_table.showSymTable();
     // 展示总结
     Utils::printResult();
 
     // 解释运行
-    Interpreter inter(output_path);
-    inter.runCode();
+    // const Interpreter inter(output_path);
+    // inter.runCode();
 
     return 0;
 }

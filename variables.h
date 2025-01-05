@@ -15,6 +15,6 @@ inline std::string symbol_table[SYM_ITEMS_CNT]; // 符号表
 inline unsigned long lex_err_cnt = 0; // 错误数量
 inline unsigned long syntax_err_cnt = 0; // 错误数量
 inline unsigned long sym_err_cnt = 0; // 错误数量
-inline size_t level = 0; // 层差
-inline size_t glo_offset = 0; // 全局offset
+inline int level = 0; // 层差
+inline int glo_offset = 0; // 全局offset
 #endif //VARIABLES_H

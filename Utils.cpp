@@ -6,6 +6,8 @@
 #include "Utils.h"
 
 #include "constants.h"
+#include "PCode.h"
+#include "SymTable.h"
 #include "variables.h"
 
 void Utils::init()
@@ -23,8 +25,8 @@ void Utils::init()
 void Utils::readFile(const std::string& path)
 {
     const std::string file_name = path.substr(path.find_last_of('/') + 1,
-        path.length() - path.find_last_of('/') - 1);
-    const std::string output_path = "./output/" + file_name + ".pcode";
+                                              path.find_last_of('.') - path.find_last_of('/') - 1);
+    output_path = "/home/l0v3ch4n/Desktop/program-repo/compiler/output/" + file_name + ".pcode";
     info("文件名：" + file_name);
     info("输出路径：" + output_path);
     //读取文件
@@ -63,7 +65,12 @@ void Utils::readFile(const std::string& path)
 void Utils::printResult()
 {
     if (lex_err_cnt == 0 && syntax_err_cnt == 0 && sym_err_cnt == 0)
+    {
         success("编译成功！");
+        // 展示符号表
+        showSymTable();
+        PCode::printCode(true);
+    }
     else
     {
         error("编译失败！");
@@ -112,6 +119,7 @@ void Utils::success(const std::string& message, const unsigned int line_num, con
     std::cout << "\033[1;32m[SUCCESS]\t\033[0m" << message << " at line " << line_num << ", col " << col_num <<
         std::endl;
 }
+
 void Utils::warning(const std::string& message)
 {
     std::cout << "\033[1;33m[WARNING]\t" << message << "\033[0m" << std::endl;
@@ -121,4 +129,14 @@ void Utils::warning(const std::string& message, const unsigned int line_num, con
 {
     std::cout << "\033[1;33m[WARNING]\t\033[0m" << message << " at line " << line_num << ", col " << col_num <<
         std::endl;
+}
+
+void Utils::output(const int number)
+{
+    std::cout << "\033[1;35m[OUTPUT]\t" << std::to_string(number) << "\033[0m";
+}
+
+void Utils::input_prompt()
+{
+    std::cout << "\033[1;35m[INPUT]\t>>>\t\033[0m";
 }

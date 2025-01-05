@@ -5,8 +5,6 @@
 #include "LexAnalyzer.h"
 
 #include <iostream>
-#include <variant>
-#include <oneapi/tbb/info.h>
 
 #include "Utils.h"
 #include "variables.h"
