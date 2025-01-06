@@ -6,7 +6,6 @@
 #define SYNTAXANALYZER_H
 #include "LexAnalyzer.h"
 #include "PCode.h"
-#include "SymTable.h"
 
 
 class SyntaxAnalyzer
@@ -21,8 +20,6 @@ public:
     }
 
     void analyze();
-
-    void recover(unsigned long s1, unsigned long s2, const std::string& errorMessage);
 
     void prog();
 

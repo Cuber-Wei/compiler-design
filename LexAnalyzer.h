@@ -25,6 +25,7 @@ public:
     };
     char ch; // 字符变量，存放最新读进的源程序字符
     std::string sym[3]; // 最近一次识别出来的 token 的类型, [大类, 小类, 属性值]
+    std::string pre_sym[3]; // 最近一次识别出来的 token 的类型, [大类, 小类, 属性值]
     std::string programStrToHandle; //程序字符串
     std::string strToken; // 字符串，存放构成单词符号的字符串
     unsigned int curr_no, token_no; //当前字符编号，当前token编号
@@ -43,6 +44,9 @@ public:
         sym[0] = token_type_to_string(token_type::NUL); // 大类, token_type
         sym[1] = token_type_to_string(token_type::NUL); // 小类, identifier_type / opr_type / rsv_word_type
         sym[2] = token_type_to_string(token_type::NUL); // 属性值, name / number
+        pre_sym[0] = token_type_to_string(token_type::NUL); // 大类, token_type
+        pre_sym[1] = token_type_to_string(token_type::NUL); // 小类, identifier_type / opr_type / rsv_word_type
+        pre_sym[2] = token_type_to_string(token_type::NUL); // 属性值, name / number
         programStrToHandle = std::move(programStr);
     }
 
@@ -57,9 +61,10 @@ public:
     void getCh(); // 获取下一个字符
     void retract(); // 回调一个字符，同时将ch置0
     void contract(); // 将当前字符追加到token中
+    void backToken();
     bool getToken(); // 分析词汇，判断是否合法
 
-    bool isEOF(); // 判断是否到达文件末尾
+    bool isEOF() const; // 判断是否到达文件末尾
 };
 
 

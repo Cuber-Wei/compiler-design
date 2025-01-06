@@ -4,6 +4,7 @@
 
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
+#include <string>
 // 源文件配置相关常量
 #define TAB_WIDTH 4 // 制表符宽度
 #define MAX_LINE_LENGTH 100 // 最大行长度
@@ -46,11 +47,10 @@
 #define OPR_EQL 7
 #define OPR_NEQ 8
 #define OPR_LSS 9
-#define OPR_GEQ 10
+#define OPR_LEQ 10
 #define OPR_GRT 11
-#define OPR_LEQ 12
+#define OPR_GEQ 12
 #define OPR_PRINT 13
-#define OPR_PRINTLN 14
 
 // 解释器相关常量
 #define RA 0

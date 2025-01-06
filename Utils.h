@@ -15,6 +15,7 @@ public:
     static void printResult();
 
     static void info(const std::string& message); // 打印提示信息
+    static void info_with_no_endl(const std::string& message);
     static void info(const std::string&, unsigned int line_num, unsigned int col_num); // 打印提示信息
 
     static void error(const std::string& message); // 打印错误信息

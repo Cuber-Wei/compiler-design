@@ -5,7 +5,6 @@
 #include <iostream>
 #include "Utils.h"
 
-#include "constants.h"
 #include "PCode.h"
 #include "SymTable.h"
 #include "variables.h"
@@ -86,6 +85,11 @@ void Utils::info(const std::string& message)
     std::cout << "\033[1;34m[INFO]\t\t\033[0m" << message << std::endl;
 }
 
+void Utils::info_with_no_endl(const std::string& message)
+{
+    std::cout << "\033[1;34m[INFO]\t\t\033[0m" << message;
+}
+
 void Utils::info(const std::string& message, const unsigned int line_num, const unsigned int col_num)
 {
     std::cout << "\033[1;34m[INFO]\t\t\033[0m" << message << " at line " << line_num << ", col " << col_num <<
@@ -127,7 +131,7 @@ void Utils::warning(const std::string& message)
 
 void Utils::warning(const std::string& message, const unsigned int line_num, const unsigned int col_num)
 {
-    std::cout << "\033[1;33m[WARNING]\t\033[0m" << message << " at line " << line_num << ", col " << col_num <<
+    std::cout << "\033[1;33m[SUCCESS]\t\033[0m" << message << " at line " << line_num << ", col " << col_num <<
         std::endl;
 }
 

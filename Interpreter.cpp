@@ -30,12 +30,15 @@ void Interpreter::runCode() const
         code_stack[line_num++] = line;
     }
     code_file.close();
-    for (int linno = 0; linno < line_num - 1; linno = pc)
+    for (size_t linno = 0; linno < line_num - 1; linno = pc)
     {
         std::string each_line = code_stack[linno];
+        if (each_line.empty())
+            break;
         // 分割指令
-        std::string op = each_line.substr(0, 3);
-        int l = std::stoi(each_line.substr(4, each_line.find_last_of(' ') - 4));
+        std::string op = each_line.substr(each_line.find_first_of(' ') + 1, 3);
+        int l = std::stoi(each_line.substr(each_line.find_first_of(' ') + 5,
+                                           each_line.find_last_of(' ') - each_line.find_first_of(' ') - 5));
         int a = std::stoi(each_line.substr(each_line.find_last_of(' ') + 1));
         // Utils::info("当前代码行数 " + std::to_string(linno) + ": " + each_line);
         // Utils::warning("参数 l = " + std::to_string(l) + ", a = " + std::to_string(a));
@@ -95,16 +98,16 @@ void Interpreter::runCode() const
         {
             // CAL  l a	调用过程，a为过程地址，l为层差
             // 保存断点
-            running_stack[top + RA] = pc + 1;
+            running_stack[top + RA] = static_cast<int>(pc + 1);
             // 复制全局display的L+1个单元到即将开辟的活动记录
             // running_stack[sp + GLO_DIS]表示当前全局display表的基地址
             // top + DISPLAY表示即将开辟的活动记录的display表基地址
             for (int i = 0; i <= l; i++)
                 running_stack[top + DISPLAY + i] = running_stack[running_stack[sp + GLO_DIS] + i];
             // 第L+1个单元是即将开辟的活动记录的基地址
-            running_stack[top + DISPLAY + l] = top;
+            running_stack[top + DISPLAY + l] = static_cast<int>(top);
             // 记录老sp，并调整sp到即将开辟的活动记录
-            running_stack[top + DL] = sp;
+            running_stack[top + DL] = static_cast<int>(sp);
             sp = top;
             // 跳转
             pc = a;
@@ -125,7 +128,7 @@ void Interpreter::runCode() const
                 top = running_stack.size();
             }
             // 将新的display地址送到新的活动记录中的全局display处
-            running_stack[sp + GLO_DIS] = sp + DISPLAY;
+            running_stack[sp + GLO_DIS] = static_cast<int>(sp) + DISPLAY;
             pc++;
         }
         else if (op == "JMP")
@@ -167,7 +170,7 @@ void Interpreter::runCode() const
         }
         else if (op == "OPR")
         {
-            int tmp1, tmp2, top_value, res, old_sp;
+            int res, old_sp;
             switch (a)
             {
             case 0:

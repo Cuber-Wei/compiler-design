@@ -4,7 +4,6 @@
 
 #ifndef PCODE_H
 #define PCODE_H
-#include <string>
 #include <vector>
 
 #include "constants.h"
@@ -54,10 +53,9 @@ public:
 class PCode
 {
 public:
-    static std::string output_path;
     static std::vector<Instruction> codeList;
 
-    static unsigned long emit(Operation op, int L, int a);
+    static size_t emit(Operation op, int L, int a);
     static void backpatch(size_t target, size_t addr);
     static void printCode(bool is_to_file);
     static void clear();

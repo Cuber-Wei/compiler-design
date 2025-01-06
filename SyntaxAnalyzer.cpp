@@ -6,6 +6,7 @@
 
 #include <ranges>
 
+#include "SymTable.h"
 #include "Utils.h"
 #include "variables.h"
 
@@ -108,18 +109,19 @@ void SyntaxAnalyzer::prog()
 void SyntaxAnalyzer::exp()
 {
     // <exp> -> [+ | -] <term> {<aop> <term>}
+    std::string aop;
     if (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && (lexer.sym[1] == opr_type_to_string(opr_type::ADD)
         || lexer.sym[1] == opr_type_to_string(opr_type::SUB)))
     {
+        aop = lexer.sym[1];
+        if (aop == opr_type_to_string(opr_type::SUB))
+            PCode::emit(opr, 0, OPR_NEGTIVE);
         is_valid_token = lexer.getToken();
     }
     term();
     // <aop> -> + | -
     if (lexer.sym[1] != opr_type_to_string(opr_type::ADD) && lexer.sym[1] != opr_type_to_string(opr_type::SUB))
         return;
-    std::string aop = lexer.sym[1];
-    if (aop == opr_type_to_string(opr_type::SUB))
-        PCode::emit(opr, 0, OPR_NEGTIVE);
     while (lexer.sym[1] == opr_type_to_string(opr_type::ADD) || lexer.sym[1] == opr_type_to_string(opr_type::SUB))
     {
         aop = lexer.sym[1];
@@ -138,9 +140,9 @@ void SyntaxAnalyzer::factor()
     if (lexer.sym[0] == token_type_to_string(token_type::IDENTIFY))
     {
         // 查找变量
-        const int pos = SymTable::lookUpVar(lexer.sym[2]);
+        const size_t pos = SymTable::lookUpVar(lexer.sym[2]);
         VarInfo* curr_info = nullptr;
-        if (pos != -1)
+        if (pos == -1)
         {
             Utils::error("Undefined variable '" + lexer.sym[2] + "'.", lexer.curr_row, lexer.curr_col);
             syntax_err_cnt++;
@@ -199,7 +201,7 @@ void SyntaxAnalyzer::term()
     if (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && (lexer.sym[1] == opr_type_to_string(opr_type::MUL)
         || lexer.sym[1] == opr_type_to_string(opr_type::DIV)))
     {
-        std::string mop = lexer.sym[1];
+        const std::string mop = lexer.sym[1];
         // <mop> -> * | /
         is_valid_token = lexer.getToken();
         factor();
@@ -268,9 +270,9 @@ void SyntaxAnalyzer::statement()
     {
         // <id>
         // <id> :=
-        const int pos = SymTable::lookUpVar(lexer.sym[2]);
-        VarInfo* curr_info = nullptr;
-        if (pos != -1)
+        const size_t pos = SymTable::lookUpVar(lexer.sym[2]);
+        const VarInfo* curr_info = nullptr;
+        if (pos == -1)
         {
             Utils::error("Undefined variable '" + lexer.sym[2] + "'.", lexer.curr_row, lexer.curr_col);
             sym_err_cnt++;
@@ -343,7 +345,6 @@ void SyntaxAnalyzer::statement()
             // 当前栈顶为条件表达式的布尔值
             // 条件为假跳转，待回填循环出口地址
             const size_t loop = PCode::emit(jpc, 0, 0);
-            // is_valid_token = lexer.getToken();
             if (lexer.sym[0] == token_type_to_string(token_type::RSV_WORD) && lexer.sym[1] == rsv_word_type_to_string(
                 rsv_word_type::DO))
             {
@@ -366,13 +367,12 @@ void SyntaxAnalyzer::statement()
             is_valid_token = lexer.getToken();
             if (lexer.sym[0] == token_type_to_string(token_type::IDENTIFY))
             {
-                ProcInfo* curr_info = nullptr;
+                const ProcInfo* curr_info = nullptr;
                 // 查找过程的符号名
-                int pos = SymTable::lookUpProc(lexer.sym[2]);
                 // 未查找到过程名
-                if (pos == -1)
+                if (const size_t pos = SymTable::lookUpProc(lexer.sym[2]); pos == -1)
                 {
-                    Utils::error("Undefined variable '" + lexer.sym[2] + "'.", lexer.curr_row, lexer.curr_col);
+                    Utils::error("Undeclared procedure '" + lexer.sym[2] + "'.", lexer.curr_row, lexer.curr_col);
                     sym_err_cnt++;
                 }
                 else
@@ -380,7 +380,7 @@ void SyntaxAnalyzer::statement()
                 // 若调用未定义的过程
                 if (curr_info && !curr_info->isDefined)
                 {
-                    Utils::error("Undefined variable '" + lexer.sym[2] + "'.", lexer.curr_row, lexer.curr_col);
+                    Utils::error("Undefined procedure '" + lexer.sym[2] + "'.", lexer.curr_row, lexer.curr_col);
                     sym_err_cnt++;
                 }
                 is_valid_token = lexer.getToken();
@@ -389,6 +389,22 @@ void SyntaxAnalyzer::statement()
                 {
                     // (<exp> {, <exp>})
                     is_valid_token = lexer.getToken();
+                    if (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && lexer.sym[1] == opr_type_to_string(
+                        opr_type::RIGHT_BRACKET))
+                    {
+                        // 无参数调用
+                        is_valid_token = lexer.getToken();
+                        //调用子过程
+                        if (curr_info)
+                            PCode::emit(call, static_cast<int>(curr_info->level), static_cast<int>(curr_info->entry));
+                        // 实参与形参数量不匹配，报错
+                        if (curr_info && !curr_info->form_var_list.empty())
+                        {
+                            Utils::error("Parameter number mismatch.", lexer.curr_row, lexer.curr_col);
+                            sym_err_cnt++;
+                        }
+                        return;
+                    }
                     exp();
                     // 将实参传入即将调用的子过程
                     if (curr_info)
@@ -450,9 +466,9 @@ void SyntaxAnalyzer::statement()
                 is_valid_token = lexer.getToken();
                 if (lexer.sym[0] == token_type_to_string(token_type::IDENTIFY))
                 {
-                    const int pos = SymTable::lookUpVar(lexer.sym[2]);
+                    const size_t pos = SymTable::lookUpVar(lexer.sym[2]);
                     const VarInfo* curr_info = nullptr;
-                    if (pos != -1)
+                    if (pos == -1)
                     {
                         Utils::error("Undefined variable '" + lexer.sym[2] + "'.", lexer.curr_row, lexer.curr_col);
                         sym_err_cnt++;
@@ -489,9 +505,9 @@ void SyntaxAnalyzer::statement()
                     is_valid_token = lexer.getToken();
                     if (lexer.sym[0] == token_type_to_string(token_type::IDENTIFY))
                     {
-                        const int pos = SymTable::lookUpVar(lexer.sym[2]);
+                        const size_t pos = SymTable::lookUpVar(lexer.sym[2]);
                         const VarInfo* curr_info = nullptr;
-                        if (pos != -1)
+                        if (pos == -1)
                         {
                             Utils::error("Undeclared variable '" + lexer.sym[2] + "'.", lexer.curr_row, lexer.curr_col);
                             sym_err_cnt++;
@@ -549,6 +565,7 @@ void SyntaxAnalyzer::statement()
                 is_valid_token = lexer.getToken();
                 exp();
                 PCode::emit(wrt, 0, 0);
+                PCode::emit(opr, 0, OPR_PRINT);
                 while (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && lexer.sym[1] ==
                     opr_type_to_string(
                         opr_type::COMMA))
@@ -556,6 +573,7 @@ void SyntaxAnalyzer::statement()
                     is_valid_token = lexer.getToken();
                     exp();
                     PCode::emit(wrt, 0, 0);
+                    PCode::emit(opr, 0, OPR_PRINT);
                     is_valid_token = lexer.getToken();
                 }
                 if (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && lexer.sym[1] == opr_type_to_string(
@@ -612,7 +630,7 @@ void SyntaxAnalyzer::block()
     }
     // 将所需内存写入符号表
     const size_t curr_proc = SymTable::sp;
-    auto* curr_info = dynamic_cast<ProcInfo*>(SymTable::table[curr_proc].info);
+    auto* curr_info = static_cast<ProcInfo*>(SymTable::table[curr_proc].info);
     SymTable::addWidth(curr_proc, glo_offset);
 
     // [<proc>]
@@ -622,9 +640,9 @@ void SyntaxAnalyzer::block()
         // 过程定义, <proc>
         proc();
         // 检查是否为常量定义或变量定义
-        if ((lexer.sym[0] == token_type_to_string(token_type::RSV_WORD) && (
+        if (lexer.sym[0] == token_type_to_string(token_type::RSV_WORD) && (
             lexer.sym[1] == rsv_word_type_to_string(rsv_word_type::CONST) ||
-            lexer.sym[1] == rsv_word_type_to_string(rsv_word_type::VAR))))
+            lexer.sym[1] == rsv_word_type_to_string(rsv_word_type::VAR)))
         {
             if (lexer.sym[1] == rsv_word_type_to_string(rsv_word_type::CONST))
                 Utils::error("Unexpected const definition.", lexer.curr_row, lexer.curr_col);
@@ -643,6 +661,15 @@ void SyntaxAnalyzer::block()
     if (curr_proc)
         curr_info->isDefined = true;
     // <body>
+    if (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && lexer.sym[1] == opr_type_to_string(
+        opr_type::SEMICOLON))
+    {
+        // 多余的;
+        Utils::error("Redundant ';'.", lexer.pre_row, lexer.pre_col);
+        syntax_err_cnt++;
+        exit_status = SYN_REDUNDANT_TOKEN;
+        is_valid_token = lexer.getToken();
+    }
     body();
 }
 
@@ -792,8 +819,7 @@ void SyntaxAnalyzer::proc()
         // 标识符定位：过程名
         lexer.sym[1] = identifier_type_to_string(identifier_type::PROCEDURE);
         SymTable::mkTable();
-        int curr_proc = SymTable::enterProc(lexer.sym[2]);
-        if (curr_proc != -1)
+        if (const size_t curr_proc = SymTable::enterProc(lexer.sym[2]); curr_proc != -1)
         {
             curr_info = dynamic_cast<ProcInfo*>(SymTable::table[curr_proc].info);
             // 子过程入口地址填入符号表，待回填
@@ -815,8 +841,8 @@ void SyntaxAnalyzer::proc()
                 // 标识符定位：参数名
                 lexer.sym[1] = identifier_type_to_string(identifier_type::PARAMETER);
                 // 将形参登入符号表，并与相应过程绑定
-                int form_var = SymTable::enter(lexer.sym[2], glo_offset,
-                                               identifier_type_to_string(identifier_type::PARAMETER));
+                size_t form_var = SymTable::enter(lexer.sym[2], glo_offset,
+                                                  identifier_type_to_string(identifier_type::PARAMETER));
                 glo_offset += VAR_WIDTH;
                 if (curr_info)
                     curr_info->form_var_list.push_back(form_var);
@@ -844,7 +870,7 @@ void SyntaxAnalyzer::proc()
                         {
                             // 错误命名
                             Utils::error(
-                                "Invalid identifier name (Conflict with reserve word '" + lexer.sym[2] + "'.",
+                                "Invalid identifier name (Conflict with reserve word '" + lexer.sym[2] + "').",
                                 lexer.curr_row, lexer.curr_col);
                             syntax_err_cnt++;
                             exit_status = SYN_INV_DED;
@@ -921,7 +947,6 @@ void SyntaxAnalyzer::proc()
 
 void SyntaxAnalyzer::body()
 {
-    Utils::warning("body start");
     // <body> -> begin <statement> {; <statement>} end
     // <body> -> begin
     if (lexer.sym[0] == token_type_to_string(token_type::RSV_WORD) && lexer.sym[1] == rsv_word_type_to_string(
@@ -930,8 +955,8 @@ void SyntaxAnalyzer::body()
         // <body> -> begin <statement>
         statement();
         // <body> -> begin <statement> {; <statement>}
-        while (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && lexer.sym[1] ==
-            opr_type_to_string(opr_type::SEMICOLON))
+        while (lexer.sym[0] == token_type_to_string(token_type::OPCODE) &&
+            lexer.sym[1] == opr_type_to_string(opr_type::SEMICOLON))
         {
             statement();
         }
@@ -939,9 +964,7 @@ void SyntaxAnalyzer::body()
         if (lexer.sym[0] == token_type_to_string(token_type::RSV_WORD) && lexer.sym[1] ==
             rsv_word_type_to_string(
                 rsv_word_type::END))
-        {
             is_valid_token = lexer.getToken();
-        }
         else
         {
             Utils::error("'end' expected.", lexer.pre_row, lexer.pre_col);
@@ -955,5 +978,4 @@ void SyntaxAnalyzer::body()
         syntax_err_cnt++;
         exit_status = SYN_MISS_TOKEN;
     }
-    Utils::warning("body end");
 }

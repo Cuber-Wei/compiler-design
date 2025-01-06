@@ -40,7 +40,7 @@ class VarInfo final : public Information
 {
 public:
     std::string type; // 类型
-    int value; // is
+    int value; // 数值
 
     VarInfo();
 
@@ -82,33 +82,32 @@ public:
 class SymTable
 {
 public:
-    // size_t lineNo;
     static size_t sp; // 指向当前子过程符号表的首地址
     static std::vector<SymTableItem> table; // 一个程序唯一的符号表
     static std::vector<size_t> display; // 过程的嵌套层次表
 
-    // explicit SymTable(const size_t lineNum)
-    // {
-    //     lineNo = lineNum;
-    // };
+    SymTable()
+    {
+        clear();
+    }
 
     // 创建子符号表
     static void mkTable();
 
     // 将变量名登入符号表
-    static int enter(const std::string& name, size_t offset, const std::string& cat);
+    static size_t enter(const std::string& name, size_t offset, const std::string& cat);
 
     static void addWidth(size_t addr, size_t width);
 
     // 将过程名登入符号表
-    static int enterProc(const std::string& name);
+    static size_t enterProc(const std::string& name);
 
     static void enterProgram(const std::string& name);
 
     // 查找符号在符号表中位置
-    static int lookUpVar(const std::string& name);
+    static size_t lookUpVar(const std::string& name);
 
-    static int lookUpProc(const std::string& name);
+    static size_t lookUpProc(const std::string& name);
 
     // 清空符号表
     static void clear();

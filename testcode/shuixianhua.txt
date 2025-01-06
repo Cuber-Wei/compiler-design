@@ -1,0 +1,50 @@
+program shuixian;
+var flag,r,i, x, y;
+
+procedure gcd(x,y);
+var tmp1,tmp2;
+begin
+    tmp1:=x;
+    tmp2:=y;
+    while tmp1<>tmp2 do
+    begin
+        if tmp1>tmp2 then tmp1:=tmp1-tmp2 else tmp2:=tmp2-tmp1
+    end;
+    write(tmp1)
+end;
+
+procedure check(n);
+var sum, temp, tmp1, tmp2;
+    procedure getR(n);
+    var tmp1,tmp2;
+    begin
+        tmp1:=n/10;
+        tmp2:=tmp1*10;
+        r:=n-tmp2
+    end;
+begin
+    sum:=0;
+    temp:=n;
+    while temp>0 do
+    begin
+        call getR(temp);
+        tmp1:=r*r;
+        tmp2:=tmp1*r;
+        sum:=sum+tmp2;
+        temp:=temp/10
+    end;
+    if sum=n then flag:=1 else flag:=0
+end
+
+begin
+    i:=100;
+    write(i*2+i/2);
+    while i<1000 do
+    begin
+        call check(i);
+        if flag=1 then write(i);
+        i:=i+1
+    end;
+    read(x,y);
+    call gcd(x,y)
+end

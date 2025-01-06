@@ -3,8 +3,6 @@
 
 #include "Interpreter.h"
 #include "LexAnalyzer.h"
-#include "PCode.h"
-#include "SymTable.h"
 #include "SyntaxAnalyzer.h"
 #include "Utils.h"
 #include "variables.h"
@@ -23,10 +21,9 @@ int main()
     syntaxer.analyze();
     // 展示总结
     Utils::printResult();
-
     // 解释运行
-    // const Interpreter inter(output_path);
-    // inter.runCode();
+    const Interpreter inter(output_path);
+    inter.runCode();
 
     return 0;
 }

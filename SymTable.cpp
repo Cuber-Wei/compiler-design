@@ -13,7 +13,7 @@
 
 size_t SymTable::sp = 0;
 std::vector<SymTableItem> SymTable::table; // 一个程序唯一的符号表
-std::vector<size_t> SymTable::display; // 过程的嵌套层次表
+std::vector<size_t> SymTable::display{0}; // 过程的嵌套层次表
 
 Information::Information()
 {
@@ -24,7 +24,7 @@ Information::Information()
 
 void Information::show()
 {
-    std::cout << std::setw(10) << "cat: " << std::setw(13) << cat
+    std::cout << std::setw(10) << "catalog: " << std::setw(13) << cat
         << std::setw(10) << "offset: " << std::setw(5) << offset
         << std::setw(10) << "level: " << std::setw(5) << level;
 }
@@ -41,10 +41,14 @@ int VarInfo::getValue() { return this->value; }
 
 void VarInfo::show()
 {
-    std::cout << std::setw(10) << "cat:" << std::setw(15) << cat
-        << std::setw(10) << "offset:" << std::setw(5) << offset
-        << std::setw(10) << "level:" << std::setw(5) << level
-        << std::setw(10) << "value:" << std::setw(5) << value;
+    std::cout << "\033[1;33m" << std::setw(15) << cat << "\033[0m"
+        << "\033[1;34m" << std::setw(10) << "offset:" << std::setw(5) << offset << "\033[0m"
+        << "\033[1;35m" << std::setw(10) << level << "\033[0m"
+        << "\033[1;36m" << std::setw(10) << "value:" << std::setw(5);
+    if (cat == identifier_type_to_string(identifier_type::CONSTANT))
+        std::cout << value << "\033[0m";
+    else
+        std::cout << "null" << "\033[0m";
 }
 
 ProcInfo::ProcInfo()
@@ -59,22 +63,23 @@ size_t ProcInfo::getEntry() { return this->entry; }
 
 void ProcInfo::show()
 {
-    std::cout << std::setw(10) << "cat:" << std::setw(15) << cat
-        << std::setw(10) << "size:" << std::setw(5) << offset
-        << std::setw(10) << "level:" << std::setw(5) << level
-        << std::setw(10) << "entry:" << std::setw(5) << entry
-        << std::setw(17) << "form var list:";
-    if (form_var_list.empty())
-        std::cout << std::setw(5) << "null";
+    std::cout << "\033[1;33m" << std::setw(15) << cat << "\033[0m"
+        << "\033[1;34m" << std::setw(10) << "size:" << std::setw(5) << offset << "\033[0m"
+        << "\033[1;35m" << std::setw(10) << level << "\033[0m"
+        << "\033[1;36m" << std::setw(10) << "entry:" << std::setw(5) << entry << "\033[0m"
+        << "\033[1;37m" << "\t\t";
+    if (form_var_list.empty()) // 参数列表为空
+        std::cout << " null";
     for (const size_t mem : form_var_list)
-    {
-        std::cout << std::setw(5) << SymTable::table[mem].name;
-    }
+        std::cout << " " << SymTable::table[mem].name;
+    std::cout << "\033[0m";
 }
 
 void SymTableItem::show() const
 {
-    std::cout << std::setw(10) << name << std::setw(10) << pre_item;
+    Utils::info_with_no_endl("");
+    std::cout << "\033[1;31m" << std::setw(10) << name << "\033[0m"
+        << "\033[1;32m" << std::setw(10) << pre_item << "\033[0m";
     info->show();
     std::cout << std::endl;
 }
@@ -84,10 +89,10 @@ void SymTable::mkTable()
     sp = table.size();
 }
 
-int SymTable::enter(const std::string& name, const size_t offset, const std::string& cat)
+size_t SymTable::enter(const std::string& name, const size_t offset, const std::string& cat)
 {
     // 如果查找到重复符号，且必须在同一层级，不为形参、过程名，则说明出现变量名重定义
-    if (const int pos = lookUpVar(name); pos != -1 && table[pos].info->level == level)
+    if (const size_t pos = lookUpVar(name); pos != -1 && table[pos].info->level == level)
     {
         Utils::error("Redeclared " + name);
         return -1;
@@ -107,15 +112,14 @@ int SymTable::enter(const std::string& name, const size_t offset, const std::str
     varInfo->value = 0;
     item.info = varInfo;
     table.push_back(item);
-    // std::cout << std::setw(5) << table[cur_addr].name << std::setw(5) << table[cur_addr].pre_item << std::endl;
     // 返回当前符号表项的地址
     return cur_addr;
 }
 
-int SymTable::enterProc(const std::string& name)
+size_t SymTable::enterProc(const std::string& name)
 {
     // 若查找到重复符号，且为同一层级的过程名，则出现过程重定义
-    if (const int pos = lookUpProc(name); pos != -1 && table[pos].info->level == level + 1)
+    if (const size_t pos = lookUpProc(name); pos != -1 && table[pos].info->level == level + 1)
     {
         Utils::error("Redeclared " + name);
         return -1;
@@ -134,7 +138,6 @@ int SymTable::enterProc(const std::string& name)
     procInfo->entry = 0;
     item.info = procInfo;
     table.push_back(item);
-    // std::cout << std::setw(5) << table[cur_addr].name << std::setw(5) << table[cur_addr].pre_item << std::endl;
     // 返回当前符号表项的地址
     return cur_addr;
 }
@@ -152,14 +155,14 @@ void SymTable::enterProgram(const std::string& name)
     table.push_back(item);
 }
 
-int SymTable::lookUpProc(const std::string& name)
+size_t SymTable::lookUpProc(const std::string& name)
 {
-    unsigned int curAddr = 0;
+    size_t curAddr = 0;
     // i代表访问display的指针
     // 若查找主过程名，直接返回-1
     if (level == 0 && display[0] == 0)
         return -1;
-    for (int i = static_cast<int>(level); i >= 0; i--)
+    for (int i = level; i >= 0; i--)
     {
         curAddr = display[i];
         // 遍历当前display指针指向的过程下的所有过程符号，直到遇到最后一个符号(pre == 0)
@@ -167,9 +170,7 @@ int SymTable::lookUpProc(const std::string& name)
         {
             if (table[curAddr].info->cat == identifier_type_to_string(identifier_type::PROCEDURE)
                 && table[curAddr].name == name)
-            {
-                return static_cast<int>(curAddr);
-            }
+                return curAddr;
             if (table[curAddr].pre_item == 0)
                 break;
             curAddr = table[curAddr].pre_item;
@@ -178,31 +179,30 @@ int SymTable::lookUpProc(const std::string& name)
     return -1;
 }
 
-int SymTable::lookUpVar(const std::string& name)
+size_t SymTable::lookUpVar(const std::string& name)
 {
-    int curAddr = 0;
+    size_t curAddr = 0;
     // i代表访问display的指针
     // 若查找主过程名，直接返回-1
     if (display.empty())
         return -1;
     if (level == 0 && display[0] == 0)
         return -1;
-    for (int i = static_cast<int>(level); i >= 0; i--)
+    for (int i = level; i >= 0; i--)
     {
-        curAddr = static_cast<int>(display[i]);
-        if (curAddr < 0 || curAddr >= table.size())
+        // 由内向外查询名称
+        curAddr = display[i];
+        if (curAddr >= table.size()) // 防止越界
             break;
         // 遍历当前display指针指向的过程下的所有变量符号，直到遇到最后一个符号(pre == 0)
         while (true)
         {
             if (table[curAddr].info->cat != identifier_type_to_string(identifier_type::PROCEDURE) && table[curAddr].name
                 == name)
-            {
                 return curAddr;
-            }
             if (table[curAddr].pre_item == 0)
                 break;
-            curAddr = static_cast<int>(table[curAddr].pre_item);
+            curAddr = table[curAddr].pre_item;
         }
     }
     return -1;
@@ -225,10 +225,18 @@ void SymTable::clear()
 
 void showSymTable()
 {
-    Utils::info("=========================Symbol Table:=========================");
+    Utils::info("========================================Symbol Table========================================");
+    // 表头
+    std::cout << "\033[1;34m[INFO]\t\t\033[0m"
+        << "\033[1;31m" << std::setw(10) << "Name" << "\033[0m"
+        << "\033[1;32m" << std::setw(10) << "PreItem" << "\033[0m"
+        << "\033[1;33m" << std::setw(15) << "Type" << "\033[0m"
+        << "\033[1;34m" << std::setw(15) << "SIze/Offset" << "\033[0m"
+        << "\033[1;35m" << std::setw(10) << "Level" << "\033[0m"
+        << "\033[1;36m" << std::setw(15) << "Entry/Value" << "\033[0m"
+        << "\033[1;37m" << std::setw(15) << "Parameters" << "\033[0m"
+        << std::endl;
     for (const SymTableItem& mem : SymTable::table)
-    {
         mem.show();
-    }
-    Utils::info("===============================================================");
+    Utils::info("============================================================================================");
 }

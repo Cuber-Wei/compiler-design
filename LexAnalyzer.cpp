@@ -101,9 +101,23 @@ void LexAnalyzer::contract()
     strToken += ch;
 }
 
+void LexAnalyzer::backToken()
+{
+    // 回退token
+    sym[0] = pre_sym[0];
+    sym[1] = pre_sym[1];
+    sym[2] = pre_sym[2];
+    curr_no -= strToken.length();
+    curr_col -= strToken.length();
+    strToken.clear();
+}
+
 bool LexAnalyzer::getToken()
 {
     bool is_error = false;
+    pre_sym[0] = sym[0];
+    pre_sym[1] = sym[1];
+    pre_sym[2] = sym[2];
     // 分析词汇，判断是否合法
     // 每次只读取并分析一个Token
     skipBlank();
@@ -125,8 +139,7 @@ bool LexAnalyzer::getToken()
             }
             retract(); // 回退一个字符
             // 查表，判断类型
-            const int res = getReserve(strToken);
-            if (res == -1)
+            if (const int res = getReserve(strToken); res == -1)
             {
                 sym[0] = token_type_to_string(token_type::IDENTIFY);
                 sym[2] = strToken;
@@ -322,14 +335,10 @@ bool LexAnalyzer::getToken()
         sym[1] = token_type_to_string(token_type::ERROR);
         sym[2] = strToken;
     }
-    Utils::info("'" + strToken + "'", curr_row, curr_col);
-    Utils::info("\t大类: " + sym[0]);
-    Utils::info("\t小类: " + sym[1]);
-    Utils::info("\t属性值: " + sym[2]);
     return !is_error;
 }
 
-bool LexAnalyzer::isEOF()
+bool LexAnalyzer::isEOF() const
 {
     return curr_no == programStrToHandle.length();
 }
