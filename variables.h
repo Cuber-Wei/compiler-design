@@ -5,7 +5,6 @@
 #ifndef VARIABLES_H
 #define VARIABLES_H
 #include <string>
-#include <unordered_map>
 
 #include "constants.h"
 inline std::string output_path; // 中间代码输出路径
@@ -17,4 +16,5 @@ inline unsigned long syntax_err_cnt = 0; // 错误数量
 inline unsigned long sym_err_cnt = 0; // 错误数量
 inline int level = 0; // 层差
 inline int glo_offset = 0; // 全局offset
+inline bool to_file = false; // 是否输出代码到文件
 #endif //VARIABLES_H

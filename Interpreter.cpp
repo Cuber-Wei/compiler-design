@@ -30,6 +30,7 @@ void Interpreter::runCode() const
         code_stack[line_num++] = line;
     }
     code_file.close();
+    Utils::info("开始解释运行");
     for (size_t linno = 0; linno < line_num - 1; linno = pc)
     {
         std::string each_line = code_stack[linno];

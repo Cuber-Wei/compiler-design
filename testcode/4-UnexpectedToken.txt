@@ -1,4 +1,4 @@
-program shuixian;
+program shuixian
 var flag,r,i,x,y;
 
 procedure gcd(x,y);

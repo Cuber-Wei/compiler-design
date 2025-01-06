@@ -1,10 +1,10 @@
 program shuixian;
-var flag,r,i,x,y;
+var 1flag,r,i,x,y;
 
 procedure gcd(x,y);
 var tmp1,tmp2;
 begin
-    tmp1:=x;
+    汉字tmp1:=x;
     tmp2:=y;
     while tmp1<>tmp2 do
     begin

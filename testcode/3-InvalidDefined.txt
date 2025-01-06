@@ -1,5 +1,6 @@
 program shuixian;
 var flag,r,i,x,y;
+const tmp:=0;
 
 procedure gcd(x,y);
 var tmp1,tmp2;

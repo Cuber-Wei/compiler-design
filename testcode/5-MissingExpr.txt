@@ -8,7 +8,7 @@ begin
     tmp2:=y;
     while tmp1<>tmp2 do
     begin
-        if tmp1>tmp2 then tmp1:=tmp1-tmp2 else tmp2:=tmp2-tmp1
+        if then tmp1:=tmp1-tmp2 else tmp2:=tmp2-tmp1
     end;
     write(tmp1)
 end;

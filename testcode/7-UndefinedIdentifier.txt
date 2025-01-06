@@ -4,8 +4,10 @@ var flag,r,i,x,y;
 procedure gcd(x,y);
 var tmp1,tmp2;
 begin
+    call unknown();
     tmp1:=x;
     tmp2:=y;
+    tmp3:=3;
     while tmp1<>tmp2 do
     begin
         if tmp1>tmp2 then tmp1:=tmp1-tmp2 else tmp2:=tmp2-tmp1

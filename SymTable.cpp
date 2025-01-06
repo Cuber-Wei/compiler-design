@@ -93,10 +93,7 @@ size_t SymTable::enter(const std::string& name, const size_t offset, const std::
 {
     // 如果查找到重复符号，且必须在同一层级，不为形参、过程名，则说明出现变量名重定义
     if (const size_t pos = lookUpVar(name); pos != -1 && table[pos].info->level == level)
-    {
-        Utils::error("Redeclared " + name);
         return -1;
-    }
     // 记录当前即将登入的符号表项的地址
     const size_t cur_addr = table.size();
     SymTableItem item;
@@ -120,10 +117,7 @@ size_t SymTable::enterProc(const std::string& name)
 {
     // 若查找到重复符号，且为同一层级的过程名，则出现过程重定义
     if (const size_t pos = lookUpProc(name); pos != -1 && table[pos].info->level == level + 1)
-    {
-        Utils::error("Redeclared " + name);
         return -1;
-    }
     const size_t cur_addr = table.size();
     SymTableItem item;
     // 当前符号表项的前一项是display[level]
@@ -225,7 +219,7 @@ void SymTable::clear()
 
 void showSymTable()
 {
-    Utils::info("========================================Symbol Table========================================");
+    Utils::info("======================================  Symbol Table  ======================================");
     // 表头
     std::cout << "\033[1;34m[INFO]\t\t\033[0m"
         << "\033[1;31m" << std::setw(10) << "Name" << "\033[0m"

@@ -665,7 +665,7 @@ void SyntaxAnalyzer::block()
         opr_type::SEMICOLON))
     {
         // 多余的;
-        Utils::error("Redundant ';'.", lexer.pre_row, lexer.pre_col);
+        Utils::error("Redundant ';'.", lexer.curr_row, lexer.curr_col);
         syntax_err_cnt++;
         exit_status = SYN_REDUNDANT_TOKEN;
         is_valid_token = lexer.getToken();
@@ -681,7 +681,12 @@ void SyntaxAnalyzer::constDef()
     {
         // 标识符定位：常量名
         lexer.sym[1] = identifier_type_to_string(identifier_type::CONSTANT);
-        SymTable::enter(lexer.sym[2], 0, identifier_type_to_string(identifier_type::CONSTANT));
+        if (const size_t res = SymTable::enter(lexer.sym[2], 0, identifier_type_to_string(identifier_type::CONSTANT));
+            res == -1)
+        {
+            Utils::error("Redeclared constant '" + lexer.sym[2] + "'.", lexer.curr_row, lexer.curr_col);
+            sym_err_cnt++;
+        }
         is_valid_token = lexer.getToken();
         // :=
         if (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && lexer.sym[1] ==
@@ -733,7 +738,7 @@ void SyntaxAnalyzer::condecl()
         }
         else
         {
-            Utils::error("',' expected.", lexer.pre_row, lexer.pre_col);
+            Utils::error("',' Expected.", lexer.curr_row, lexer.curr_col);
             syntax_err_cnt++;
             exit_status = SYN_MISS_SEMICOLON;
         }
@@ -749,7 +754,13 @@ void SyntaxAnalyzer::vardecl()
         // <id>
         // 标识符定位：变量名
         lexer.sym[1] = identifier_type_to_string(identifier_type::VARIABLE);
-        SymTable::enter(lexer.sym[2], glo_offset, identifier_type_to_string(identifier_type::VARIABLE));
+        size_t res = SymTable::enter(lexer.sym[2], glo_offset,
+                                     identifier_type_to_string(identifier_type::VARIABLE));
+        if (res == -1)
+        {
+            Utils::error("Redeclared variable '" + lexer.sym[2] + "'.", lexer.curr_row, lexer.curr_col);
+            sym_err_cnt++;
+        }
         glo_offset += VAR_WIDTH;
         is_valid_token = lexer.getToken();
         while (lexer.sym[1] !=
@@ -764,7 +775,13 @@ void SyntaxAnalyzer::vardecl()
                 {
                     // 标识符定位：变量名
                     lexer.sym[1] = identifier_type_to_string(identifier_type::VARIABLE);
-                    SymTable::enter(lexer.sym[2], glo_offset, identifier_type_to_string(identifier_type::VARIABLE));
+                    res = SymTable::enter(lexer.sym[2], glo_offset,
+                                          identifier_type_to_string(identifier_type::VARIABLE));
+                    if (res == -1)
+                    {
+                        Utils::error("Redeclared variable '" + lexer.sym[2] + "'.", lexer.curr_row, lexer.curr_col);
+                        sym_err_cnt++;
+                    }
                     glo_offset += VAR_WIDTH;
                     is_valid_token = lexer.getToken(); // 获取下一个Token
                 }
@@ -772,7 +789,7 @@ void SyntaxAnalyzer::vardecl()
                 {
                     // 错误命名
                     Utils::error("Invalid identifier name.", lexer.curr_row, lexer.curr_col);
-                    syntax_err_cnt++;
+                    lex_err_cnt++;
                     exit_status = SYN_INV_DED;
                 }
                 else
@@ -784,7 +801,7 @@ void SyntaxAnalyzer::vardecl()
             }
             else
             {
-                Utils::error("',' expected.", lexer.pre_row, lexer.pre_col);
+                Utils::error("',' expected.", lexer.curr_row, lexer.curr_col);
                 syntax_err_cnt++;
                 exit_status = SYN_MISS_SEMICOLON;
                 return;
@@ -794,10 +811,9 @@ void SyntaxAnalyzer::vardecl()
     else if (lexer.sym[0] == token_type_to_string(token_type::RSV_WORD))
     {
         // 错误命名
-        Utils::error("Invalid identifier name (Conflict with reserve word '" + lexer.sym[2] + "'.",
-                     lexer.curr_row,
-                     lexer.curr_col);
-        syntax_err_cnt++;
+        Utils::error("Invalid identifier name (Conflict with reserve word '" + lexer.sym[2] + "').",
+                     lexer.curr_row, lexer.curr_col);
+        lex_err_cnt++;
         exit_status = SYN_INV_DED;
     }
     else
@@ -826,6 +842,11 @@ void SyntaxAnalyzer::proc()
             const size_t entry = PCode::emit(jmp, 0, 0);
             SymTable::table[SymTable::table.size() - 1].info->setEntry(entry);
         }
+        else
+        {
+            Utils::error("Redeclared procedure '" + lexer.sym[2] + "'.", lexer.curr_row, lexer.curr_col);
+            sym_err_cnt++;
+        }
         is_valid_token = lexer.getToken();
         // <proc> -> procedure <id> ([<id> {, <id>}])
         if (lexer.sym[0] == token_type_to_string(token_type::OPCODE) && lexer.sym[1] ==
@@ -843,6 +864,11 @@ void SyntaxAnalyzer::proc()
                 // 将形参登入符号表，并与相应过程绑定
                 size_t form_var = SymTable::enter(lexer.sym[2], glo_offset,
                                                   identifier_type_to_string(identifier_type::PARAMETER));
+                if (form_var == -1)
+                {
+                    Utils::error("Redeclared variable '" + lexer.sym[2] + "'.", lexer.curr_row, lexer.curr_col);
+                    sym_err_cnt++;
+                }
                 glo_offset += VAR_WIDTH;
                 if (curr_info)
                     curr_info->form_var_list.push_back(form_var);
@@ -861,6 +887,12 @@ void SyntaxAnalyzer::proc()
                             lexer.sym[1] = identifier_type_to_string(identifier_type::VARIABLE);
                             form_var = SymTable::enter(lexer.sym[2], glo_offset,
                                                        identifier_type_to_string(identifier_type::PARAMETER));
+                            if (form_var == -1)
+                            {
+                                Utils::error("Redeclared variable '" + lexer.sym[2] + "'.", lexer.curr_row,
+                                             lexer.curr_col);
+                                sym_err_cnt++;
+                            }
                             glo_offset += VAR_WIDTH;
                             if (curr_info)
                                 curr_info->form_var_list.push_back(form_var);
@@ -872,7 +904,7 @@ void SyntaxAnalyzer::proc()
                             Utils::error(
                                 "Invalid identifier name (Conflict with reserve word '" + lexer.sym[2] + "').",
                                 lexer.curr_row, lexer.curr_col);
-                            syntax_err_cnt++;
+                            lex_err_cnt++;
                             exit_status = SYN_INV_DED;
                         }
                         else
@@ -884,7 +916,7 @@ void SyntaxAnalyzer::proc()
                     }
                     else
                     {
-                        Utils::error("',' expected.", lexer.pre_row, lexer.pre_col);
+                        Utils::error("',' expected.", lexer.curr_row, lexer.curr_col);
                         syntax_err_cnt++;
                         exit_status = SYN_MISS_SEMICOLON;
                     }
@@ -893,7 +925,7 @@ void SyntaxAnalyzer::proc()
         }
         else
         {
-            Utils::error("'(' expected.", lexer.pre_row, lexer.pre_col);
+            Utils::error("'(' expected.", lexer.curr_row, lexer.curr_col);
         }
         // <proc> -> procedure <id> ([<id> {, <id>}]);
         is_valid_token = lexer.getToken();
@@ -925,7 +957,7 @@ void SyntaxAnalyzer::proc()
         }
         else
         {
-            Utils::error("';' expected.", lexer.pre_row, lexer.pre_col);
+            Utils::error("';' expected.", lexer.curr_row, lexer.curr_col);
             syntax_err_cnt++;
             exit_status = SYN_MISS_SEMICOLON;
         }
@@ -934,7 +966,7 @@ void SyntaxAnalyzer::proc()
     {
         // 错误命名
         Utils::error("Invalid identifier name.", lexer.curr_row, lexer.curr_col);
-        syntax_err_cnt++;
+        lex_err_cnt++;
         exit_status = SYN_INV_DED;
     }
     else
@@ -967,14 +999,14 @@ void SyntaxAnalyzer::body()
             is_valid_token = lexer.getToken();
         else
         {
-            Utils::error("'end' expected.", lexer.pre_row, lexer.pre_col);
+            Utils::error("'end' expected.", lexer.curr_row, lexer.curr_col);
             syntax_err_cnt++;
             exit_status = SYN_MISS_TOKEN;
         }
     }
     else
     {
-        Utils::error("'begin' expected.", lexer.pre_row, lexer.pre_col);
+        Utils::error("'begin' expected.", lexer.curr_row, lexer.curr_col);
         syntax_err_cnt++;
         exit_status = SYN_MISS_TOKEN;
     }

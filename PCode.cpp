@@ -40,25 +40,22 @@ void PCode::backpatch(const size_t target, const size_t addr)
 
 void PCode::printCode(const bool is_to_file)
 {
-    if (is_to_file)
-    {
-        std::ofstream out_file(output_path);
-        if (!out_file.is_open())
-        {
-            Utils::error("打开文件失败！");
-            return;
-        }
-        for (size_t i = 0; i < codeList.size(); i++)
-            out_file << i << " " << op_map[codeList[i].op] << " " << codeList[i].L << " " << codeList[i].a
-                << std::endl;
-        out_file.close();
-    }
-    else
+    if (!is_to_file)
     {
         for (size_t i = 0; i < codeList.size(); i++)
             std::cout << i << "  " << op_map[codeList[i].op] << ", " << codeList[i].L << ", " << codeList[i].a
                 << std::endl;
     }
+    std::ofstream out_file(output_path);
+    if (!out_file.is_open())
+    {
+        Utils::error("打开文件失败！");
+        return;
+    }
+    for (size_t i = 0; i < codeList.size(); i++)
+        out_file << i << " " << op_map[codeList[i].op] << " " << codeList[i].L << " " << codeList[i].a
+            << std::endl;
+    out_file.close();
 }
 
 void PCode::clear()

@@ -1,7 +1,7 @@
 program shuixian;
-var flag,r,i, x, y;
+var flag,r,i,x,y;
 
-procedure if(x,y);
+procedure read(x,y);
 var tmp1,tmp2;
 begin
     tmp1:=x;
@@ -21,7 +21,7 @@ var sum, temp, tmp1, tmp2;
         tmp1:=n/10;
         tmp2:=tmp1*10;
         r:=n-tmp2
-    end;
+    end
 begin
     sum:=0;
     temp:=n;

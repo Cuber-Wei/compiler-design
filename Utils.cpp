@@ -68,7 +68,7 @@ void Utils::printResult()
         success("编译成功！");
         // 展示符号表
         showSymTable();
-        PCode::printCode(true);
+        PCode::printCode(to_file);
     }
     else
     {
@@ -82,7 +82,7 @@ void Utils::printResult()
 
 void Utils::info(const std::string& message)
 {
-    std::cout << "\033[1;34m[INFO]\t\t\033[0m" << message << std::endl;
+    std::cout << "\033[1;34m[INFO]\t\t" << message << "\033[0m" << std::endl;
 }
 
 void Utils::info_with_no_endl(const std::string& message)

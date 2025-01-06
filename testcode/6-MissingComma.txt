@@ -1,5 +1,5 @@
 program shuixian;
-var flag,r,i,x,y;
+var flag r,i,x,y;
 
 procedure gcd(x,y);
 var tmp1,tmp2;
